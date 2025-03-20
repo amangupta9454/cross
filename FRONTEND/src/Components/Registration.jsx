@@ -29,7 +29,7 @@ const Registration = () => {
   const collegeIdInputRef = useRef(null);
 
   const MAX_FILE_SIZE = 300000; // 300KB in bytes
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000'; // Configurable via .env
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'; // Vite uses import.meta.env
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -136,7 +136,7 @@ const Registration = () => {
       setFormData({ ...initialFormData, registrationId: uuidv4() });
       setErrors({});
       if (aadharInputRef.current) aadharInputRef.current.value = '';
-      if (collegeIdInputRef.current) COLLEGEIDINPUTREF.current.value = '';
+      if (collegeIdInputRef.current) collegeIdInputRef.current.value = '';
     };
   };
 
