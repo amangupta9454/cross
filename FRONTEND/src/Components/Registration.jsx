@@ -108,7 +108,7 @@ const Registration = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/register', {
+      const response = await fetch('techfest-iiv0xiqxt-amangupta9454s-projects.vercel.app/api/register', {
         method: 'POST',
         body: submissionData,
       });
