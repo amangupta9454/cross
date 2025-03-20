@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import hietlogo from "/hietlogo.png";
 
 const Registration = () => {
-  const initialFormData = {
+  const [formData, setFormData] = useState({
     registrationId: uuidv4(),
     event: '',
     teamName: '',
@@ -19,17 +19,14 @@ const Registration = () => {
     teamSize: '',
     aadharImage: null,
     collegeId: null
-  };
+  });
 
-  const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   const [receiptData, setReceiptData] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const aadharInputRef = useRef(null);
   const collegeIdInputRef = useRef(null);
 
   const MAX_FILE_SIZE = 300000; // 300KB in bytes
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'; // Vite uses import.meta.env
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -40,7 +37,6 @@ const Registration = () => {
           ...prev,
           [name]: 'File size must be 300KB or less'
         }));
-        e.target.value = ''; // Reset file input on error
         return;
       }
       setFormData({ ...formData, [name]: file });
@@ -100,64 +96,68 @@ const Registration = () => {
       return;
     }
 
-    setIsSubmitting(true);
     const submissionData = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
       submissionData.append(key, value);
     });
 
+    console.log('Submitting form data:');
+    for (let [key, value] of submissionData.entries()) {
+      console.log(`${key}: ${value instanceof File ? value.name : value}`);
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/register`, {
+      const response = await fetch('http://localhost:5000/api/register', {
         method: 'POST',
         body: submissionData,
       });
 
       const data = await response.json();
+      console.log('Server response:', data);
+
       if (response.ok) {
         setReceiptData(data.data);
+        // Do not reset form here; reset happens after print
       } else {
         const errorMessage = data.errors
           ? data.errors.map((err) => err.msg).join(', ')
           : data.error || 'Unknown server error';
-        setErrors({ server: errorMessage });
+        console.error('Server error:', errorMessage);
+        alert('Registration failed: ' + errorMessage);
       }
     } catch (error) {
-      setErrors({ server: 'An error occurred: ' + (error.message || 'Network or server unavailable') });
-    } finally {
-      setIsSubmitting(false);
+      console.error('Fetch error:', error);
+      alert('An error occurred: ' + (error.message || 'Network or server unavailable'));
     }
   };
 
   const handlePrint = (e) => {
     e.preventDefault();
     window.print();
-    window.onafterprint = () => {
+    // Reset form and close receipt after a short delay to allow print dialog to complete
+    setTimeout(() => {
       setReceiptData(null);
-      setFormData({ ...initialFormData, registrationId: uuidv4() });
+      setFormData({
+        registrationId: uuidv4(),
+        event: '',
+        teamName: '',
+        teamLeaderName: '',
+        email: '',
+        mobile: '',
+        gender: '',
+        college: '',
+        course: '',
+        year: '',
+        rollno: '',
+        aadhar: '',
+        teamSize: '',
+        aadharImage: null,
+        collegeId: null
+      });
       setErrors({});
       if (aadharInputRef.current) aadharInputRef.current.value = '';
       if (collegeIdInputRef.current) collegeIdInputRef.current.value = '';
-    };
-  };
-
-  const handleExportExcel = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/export-excel`, {
-        method: 'GET',
-      });
-      if (!response.ok) throw new Error('Failed to download Excel');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'registrations.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      setErrors({ server: 'Failed to export Excel: ' + error.message });
-    }
+    }, 200); // 500ms delay to ensure print dialog closes
   };
 
   return (
@@ -165,11 +165,28 @@ const Registration = () => {
       <style>
         {`
           @media print {
-            body * { visibility: hidden; }
-            .receipt-container, .receipt-container * { visibility: visible; }
-            .receipt-container { position: absolute; top: 0; left: 0; width: 100%; background: white; color: black; padding: 20px; box-sizing: border-box; }
-            .no-print { display: none; }
-            .receipt-table th, .receipt-table td { border: 1px solid #000; }
+            body * {
+              visibility: hidden;
+            }
+            .receipt-container, .receipt-container * {
+              visibility: visible;
+            }
+            .receipt-container {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              background: white;
+              color: black;
+              padding: 20px;
+              box-sizing: border-box;
+            }
+            .no-print {
+              display: none;
+            }
+            .receipt-table th, .receipt-table td {
+              border: 1px solid #000;
+            }
           }
         `}
       </style>
@@ -184,10 +201,6 @@ const Registration = () => {
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-center mb-6 sm:mb-8 lg:mb-10 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent animate-text">
             Event Registration
           </h1>
-
-          {errors.server && (
-            <p className="text-red-500 text-center mb-4 animate-pulse">{errors.server}</p>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
@@ -334,19 +347,19 @@ const Registration = () => {
                   className="w-full p-3 sm:p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border-2 border-purple-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-200/50 shadow-md hover:shadow-lg transition-all duration-300 appearance-none text-sm sm:text-base"
                 >
                   <option value="">Select Course</option>
-                  <option value="btech">B.Tech</option>
+                  <option value="btech">B.tech</option>
                   <option value="bba">B.B.A</option>
                   <option value="bca">B.C.A</option>
                   <option value="bsc">B.Sc</option>
                   <option value="polytechnic">POLYTECHNIC</option>
                   <option value="mba">M.B.A</option>
                   <option value="mca">M.C.A</option>
-                  <option value="bed">B.Ed</option>
-                  <option value="bpharma">B.Pharma</option>
-                  <option value="mtech">M.Tech</option>
-                  <option value="mpharma">M.Pharma</option>
+                  <option value="bed">B.E.D</option>
+                  <option value="bpharma">B.PHARMA</option>
+                  <option value="mtech">M.TECH</option>
+                  <option value="mpharma">M.PHARMA</option>
                   <option value="inter">Inter College Student</option>
-                  <option value="high">High School Student</option>
+                  <option value="high">HIGH School Student</option>
                 </select>
                 <div className="absolute right-3 sm:right-4 top-10 sm:top-12 pointer-events-none text-gray-500">▼</div>
                 {errors.course && <p className="text-red-400 text-xs mt-1 sm:mt-2 animate-pulse">{errors.course}</p>}
@@ -365,7 +378,7 @@ const Registration = () => {
                   <option value="two">2nd</option>
                   <option value="three">3rd</option>
                   <option value="four">4th</option>
-                  <option value="other">Other</option>
+                  <option value="other">other</option>
                 </select>
                 <div className="absolute right-3 sm:right-4 top-10 sm:top-12 pointer-events-none text-gray-500">▼</div>
                 {errors.year && <p className="text-red-400 text-xs mt-1 sm:mt-2 animate-pulse">{errors.year}</p>}
@@ -454,24 +467,13 @@ const Registration = () => {
             <div className="text-center">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="relative bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-bold py-3 sm:py-4 px-8 sm:px-10 rounded-full shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 overflow-hidden group w-full sm:w-auto cursor-pointer disabled:opacity-50"
+                className="relative bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-bold py-3 sm:py-4 px-8 sm:px-10 rounded-full shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 overflow-hidden group w-full sm:w-auto cursor-pointer"
               >
-                {isSubmitting ? 'Registering...' : 'Register Now'}
+                <span className="relative z-0 text-sm sm:text-base">Register Now</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-700 via-pink-700 to-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
             </div>
           </form>
-
-          {/* Optional: Export Excel button (for admin use) */}
-          <div className="text-center mt-4">
-            <button
-              onClick={handleExportExcel}
-              className="bg-green-600 text-white font-bold py-2 px-6 rounded-full shadow-md hover:bg-green-700 transition-all duration-300"
-            >
-              Export Registrations (Admin)
-            </button>
-          </div>
 
           <p className="text-center text-xs sm:text-sm text-gray-600 mt-4 sm:mt-6 bg-gray-50 py-2 px-4 rounded-full inline-block shadow-md break-all sm:break-normal">
             Registration ID: <span className="font-mono text-purple-600">{formData.registrationId}</span>
@@ -544,6 +546,14 @@ const Registration = () => {
                 <tr>
                   <td className="py-2 px-4 font-medium text-gray-700">Team Size</td>
                   <td className="py-2 px-4">{receiptData.teamSize}</td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="py-2 px-4 font-medium text-gray-700">Aadhar Image</td>
+                  <td className="py-2 px-4">{receiptData.aadharImage}</td>
+                </tr>
+                <tr>
+                  <td className="py-2 px-4 font-medium text-gray-700">College ID</td>
+                  <td className="py-2 px-4">{receiptData.collegeId}</td>
                 </tr>
                 <tr className="bg-gray-50">
                   <td className="py-2 px-4 font-medium text-gray-700">Submitted At</td>
