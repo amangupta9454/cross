@@ -14,7 +14,4 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  build: {
-    outDir: 'dist', // Default output directory
-  },
 })
